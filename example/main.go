@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"void"
+
+	"github.com/osamikoyo/void"
 )
 
 func main() {
