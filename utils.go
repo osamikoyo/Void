@@ -6,7 +6,7 @@ import (
 )
 
 // HandlerCommand represents a command handler function
-type HandlerCommand func([]string) error
+type HandlerCommand func(args *ArgRouter) error
 
 // VoidCommand represents a CLI command with its metadata
 type VoidCommand struct {
@@ -54,7 +54,7 @@ func (cli *VoidCLI) Run() error {
 		return fmt.Errorf("unknown command: %s", cmdName)
 	}
 
-	return cmd.Handler(os.Args[2:])
+	return cmd.Handler(NewArgRouter(os.Args[2:]))
 }
 
 // printHelp displays the help message with available commands
