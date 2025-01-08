@@ -3,93 +3,117 @@ package main
 import (
     "fmt"
     "os"
-    "github.com/osamikoyo/void"
+    "path/filepath"
+    "void"
 )
 
-// Task represents a simple task
-type Task struct {
-    Title  string
-    Status string
+var currentDir string
+
+func init() {
+    var err error
+    currentDir, err = os.Getwd()
+    if err != nil {
+        fmt.Printf("Error getting current directory: %v\n", err)
+        os.Exit(1)
+    }
 }
 
-var tasks []Task
-
 func main() {
-    // Initialize the CLI application
-    cli := void.NewCLI("taskman", "1.0.0")
+    cli := void.NewCLI("fsexplorer", "1.0.0")
 
-    // Register the "add" command
-    err := cli.RegisterCommand("add", "Add a new task", handleAddTask)
-    if err != nil {
-        fmt.Printf("Error registering add command: %v\n", err)
-        os.Exit(1)
+    // Register commands
+    commands := map[string]struct {
+        desc    string
+        handler void.HandlerCommand
+    }{
+        "ls":   {"List directory contents", handleList},
+        "cd":   {"Change current directory", handleChangeDir},
+        "info": {"Show file information", handleFileInfo},
+        "pwd":  {"Show current directory", handlePwd},
     }
 
-    // Register the "list" command
-    err = cli.RegisterCommand("list", "List all tasks", handleListTasks)
-    if err != nil {
-        fmt.Printf("Error registering list command: %v\n", err)
-        os.Exit(1)
+    for cmd, details := range commands {
+        if err := cli.RegisterCommand(cmd, details.desc, details.handler); err != nil {
+            fmt.Printf("Error registering command %s: %v\n", cmd, err)
+            os.Exit(1)
+        }
     }
 
-    // Register the "complete" command
-    err = cli.RegisterCommand("complete", "Mark a task as complete", handleCompleteTask)
-    if err != nil {
-        fmt.Printf("Error registering complete command: %v\n", err)
-        os.Exit(1)
-    }
-
-    // Run the CLI application
     if err := cli.Run(); err != nil {
         fmt.Printf("Error: %v\n", err)
         os.Exit(1)
     }
 }
 
-func handleAddTask(args *void.ArgRouter) error {
-    if len(args.Args()) < 1 {
-        return fmt.Errorf("task title is required")
+func handleList(args *void.ArgRouter) error {
+    // Get target directory (current dir if no args provided)
+    targetDir := currentDir
+    if len(args.Args()) > 0 {
+        targetDir = filepath.Join(currentDir, args.Args()[0])
     }
 
-    title := args.Args()[0]
-    tasks = append(tasks, Task{
-        Title:  title,
-        Status: "pending",
-    })
-
-    fmt.Printf("Added task: %s\n", title)
-    return nil
-}
-
-func handleListTasks(args *void.ArgRouter) error {
-    if len(tasks) == 0 {
-        fmt.Println("No tasks found")
-        return nil
-    }
-
-    fmt.Println("Tasks:")
-    for i, task := range tasks {
-        fmt.Printf("%d. [%s] %s\n", i+1, task.Status, task.Title)
-    }
-    return nil
-}
-
-func handleCompleteTask(args *void.ArgRouter) error {
-    if len(args.Args()) < 1 {
-        return fmt.Errorf("task number is required")
-    }
-
-    taskNum := 0
-    _, err := fmt.Sscanf(args.Args()[0], "%d", &taskNum)
+    // Read directory contents
+    entries, err := os.ReadDir(targetDir)
     if err != nil {
-        return fmt.Errorf("invalid task number: %s", args.Args()[0])
+        return fmt.Errorf("failed to read directory: %w", err)
     }
 
-    if taskNum < 1 || taskNum > len(tasks) {
-        return fmt.Errorf("task number out of range")
+    // Display entries
+    for _, entry := range entries {
+        prefix := "f"
+        if entry.IsDir() {
+            prefix = "d"
+        }
+        fmt.Printf("[%s] %s\n", prefix, entry.Name())
     }
 
-    tasks[taskNum-1].Status = "completed"
-    fmt.Printf("Marked task %d as completed\n", taskNum)
     return nil
 }
+
+func handleChangeDir(args *void.ArgRouter) error {
+    if len(args.Args()) < 1 {
+        return fmt.Errorf("directory path required")
+    }
+
+    // Handle absolute and relative paths
+    newDir := args.Args()[0]
+    if !filepath.IsAbs(newDir) {
+        newDir = filepath.Join(currentDir, newDir)
+    }
+
+    // Verify directory exists and is accessible
+    info, err := os.Stat(newDir)
+    if err != nil {
+        return fmt.Errorf("invalid directory: %w", err)
+    }
+    if !info.IsDir() {
+        return fmt.Errorf("path is not a directory: %s", newDir)
+    }
+
+    currentDir = newDir
+    return nil
+}
+
+func handleFileInfo(args *void.ArgRouter) error {
+    if len(args.Args()) < 1 {
+        return fmt.Errorf("file path required")
+    }
+
+    // Get file path
+    path := args.Args()[0]
+    if !filepath.IsAbs(path) {
+        path = filepath.Join(currentDir, path)
+    }
+
+    // Get file info
+    info, err := os.Stat(path)
+    if err != nil {
+        return fmt.Errorf("failed to get file info: %w", err)
+    }
+
+    // Display file information
+    fmt.Printf("Name: %s\n", info.Name())
+    fmt.Printf("Size: %d bytes\n", info.Size())
+    fmt.Printf("Mode: %s\n", info.Mode())
+    fmt.Printf("Modified: %s\n", info.ModTime())
+    fmt.Printf("Is Directory: %t\n", info.IsDir())
