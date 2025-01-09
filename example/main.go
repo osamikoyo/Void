@@ -4,7 +4,7 @@ import (
     "fmt"
     "os"
     "path/filepath"
-    "void"
+    "github.com/osamikoyo/void"
 )
 
 var currentDir string
@@ -29,7 +29,6 @@ func main() {
         "ls":   {"List directory contents", handleList},
         "cd":   {"Change current directory", handleChangeDir},
         "info": {"Show file information", handleFileInfo},
-        "pwd":  {"Show current directory", handlePwd},
     }
 
     for cmd, details := range commands {
@@ -117,3 +116,5 @@ func handleFileInfo(args *void.ArgRouter) error {
     fmt.Printf("Mode: %s\n", info.Mode())
     fmt.Printf("Modified: %s\n", info.ModTime())
     fmt.Printf("Is Directory: %t\n", info.IsDir())
+	return nil
+}
